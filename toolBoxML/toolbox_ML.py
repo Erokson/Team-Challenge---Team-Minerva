@@ -249,8 +249,50 @@ def plot_features_num_regression(df, target_col="", columns=[], umbral_corr=0, p
         plt.show()
 
     return selected_features
+#5
+def get_features_cat_regression(df, target_col, pvalue=0.05):
+    """
+    Devuelve la lista de columnas categóricas del DataFrame que tienen relación
+    estadísticamente significativa con la columna numérica 'target_col'.
+    Para cada columna categórica, se agrupan los valores de la variable objetivo
+    y se realiza un test ANOVA o Kruskal-Wallis de forma simplificada.
+    Argumentos:
+    df (pd.DataFrame): El DataFrame de entrada.
+    target_col (str): Nombre de la columna target (numérica) para la regresión.
+    pvalue (float): Nivel de significación estadística. Por defecto, 0.05.
+    Retorna:
+    list or None: Lista de columnas categóricas que cumplen con el test estadístico
+                  o None si hay errores en los argumentos.
+    """
+    # Comprobaciones de entrada
+    if target_col not in df.columns:
+        print(f"Error: La columna '{target_col}' no existe en el DataFrame.")
+        return None
+    if not np.issubdtype(df[target_col].dtype, np.number):
+        print(f"Error: La columna '{target_col}' no es numérica.")
+        return None
+    if not (0 < pvalue < 1):
+        print("Error: pvalue debe estar entre 0 y 1.")
+        return None
+    # Filtramos columnas categóricas
+    cat_cols = [col for col in df.columns
+                if df[col].dtype == 'object'
+                or df[col].dtype.name == 'category']
+    selected_features = []
+    for col in cat_cols:
+        grupos = []
+        for categoria in df[col].dropna().unique():
+            grupos.append(df.loc[df[col] == categoria, target_col].dropna())
+        if len(grupos) > 1:
+            stat, p_val = f_oneway(*grupos)
+            if np.isnan(p_val):
+                stat, p_val = kruskal(*grupos)
+            if p_val < pvalue:
+                selected_features.append(col)
+    return selected_features
 
 
+#6
 def plot_features_cat_regression(dataframe, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
     
     if not isinstance(dataframe, pd.DataFrame):
@@ -293,6 +335,7 @@ def plot_features_cat_regression(dataframe, target_col="", columns=[], pvalue=0.
 
     
     return selected_columns
+
 
 
 
