@@ -292,51 +292,92 @@ def get_features_cat_regression(df, target_col, pvalue=0.05):
     return selected_features
 
 
-#6
-def plot_features_cat_regression(dataframe, target_col="", columns=[], pvalue=0.05, with_individual_plot=False):
-    
-    if not isinstance(dataframe, pd.DataFrame):
-        raise ValueError("El argumento 'dataframe' debe ser un DataFrame.")
-    if target_col not in dataframe.columns:
-        raise ValueError(f"La columna objetivo '{target_col}' no está en el DataFrame.")
-    if columns and not all(col in dataframe.columns for col in columns):
-        raise ValueError("Una o más columnas en 'columns' no están en el DataFrame.")
-    if not (0 <= pvalue <= 1):
-        raise ValueError("El valor de 'pvalue' debe estar entre 0 y 1.")
+#6 plot_features_cat_regression
+# Nueva implementación
 
- 
-    selected_columns = []
+def plot_features_cat_regression(df, target_col="", columns=[], p_value=0.05, with_individual_plot=False):
+    """
+    Genera histogramas para las variables categóricas seleccionadas
+    frente a la variable objetivo.
 
+    Parámetros:
+    df (pd.DataFrame): DataFrame que contiene las variables.
+    target_col (str): Nombre de la columna objetivo (numérica continua).
+    columns (list): Lista de columnas categóricas a evaluar.
+    p_value (float): Nivel de significancia estadística para el test de relación (por defecto 0.05).
+    with_individual_plot (bool): Si es True, genera histogramas por categoría (por defecto False).
 
-    if columns:
-        for col in columns:
-            if dataframe[col].dtype == 'object':  # Verificar si es categórica
-                # Realizar test estadístico (por ejemplo, ANOVA o Kruskal-Wallis)
-                stat, p_val = realizar_prueba_estadistica(dataframe[col], dataframe[target_col])
-                if p_val < pvalue:
-                    selected_columns.append(col)
+    Retorna:
+    list: Lista de columnas que pasan el test de relación.
+    """
+    # Validaciones de entrada
+    if not isinstance(df, pd.DataFrame):
+        print("Error: El argumento 'df' debe ser un DataFrame de pandas.")
+        return None
 
-               
-                if with_individual_plot:
-                    graficar_histograma(dataframe[col], dataframe[target_col])
+    if not isinstance(target_col, str) or target_col not in df.columns:
+        print("Error: 'target_col' debe ser el nombre de una columna existente en el DataFrame.")
+        return None
 
+    if df[target_col].dtype not in ["float64", "float32", "int64", "int32"]:
+        print("Error: 'target_col' debe ser una variable numérica continua.")
+        return None
 
-    else:
-        
-        numeric_columns = dataframe.select_dtypes(include=['number']).columns
-        for col in numeric_columns:
-            stat, p_val = realizar_prueba_estadistica(dataframe[col], dataframe[target_col])
-            if p_val < pvalue:
-                selected_columns.append(col)
+    if not isinstance(columns, list):
+        print("Error: 'columns' debe ser una lista de nombres de columnas.")
+        return None
 
+    if any(col not in df.columns for col in columns):
+        print("Error: Algunos nombres en 'columns' no existen en el DataFrame.")
+        return None
+
+    if not isinstance(p_value, (float, int)) or not (0 < p_value < 1):
+        print("Error: 'p_value' debe ser un número entre 0 y 1.")
+        return None
+
+    if not isinstance(with_individual_plot, bool):
+        print("Error: 'with_individual_plot' debe ser un valor booleano.")
+        return None
+
+    # Asignar columnas si está vacío
+    if not columns:
+        columns = [col for col in df.columns if col != target_col and df[col].dtype in ["float64", "float32", "int64", "int32"]]
+
+    # Verificar que hay columnas para evaluar
+    if not columns:
+        print("No hay columnas numéricas para evaluar.")
+        return []
+
+    significant_columns = []
+
+    # Evaluar relación entre columns y target_col
+    for col in columns:
+        try:
+            # Crear grupos por categoría
+            groups = [df[df[col] == categoria][target_col].dropna() for categoria in df[col].unique()]
             
-            if with_individual_plot:
-                graficar_histograma(dataframe[col], dataframe[target_col])
+            # Validar que hay más de un grupo
+            if len(groups) > 1:
+                _, p = f_oneway(*groups)  # Test ANOVA
+                if p < p_value:
+                    significant_columns.append(col)
+                    
+                    # Generar histogramas si se solicita
+                    if with_individual_plot:
+                        for categoria in df[col].unique():
+                            subset = df[df[col] == categoria][target_col]
+                            plt.hist(subset, alpha=0.5, label=str(categoria))
+                        
+                        plt.title(f"Histograma para {col} vs {target_col}")
+                        plt.xlabel(target_col)
+                        plt.ylabel("Frecuencia")
+                        plt.legend(title=col)
+                        plt.show()
+        except Exception as e:
+            print(f"Error al analizar la columna '{col}': {e}")
 
-    
-    return selected_columns
+    # Si no hay columnas significativas
+    if not significant_columns:
+        print("No se encontraron columnas significativas.")
 
-
-
-
-
+    return significant_columns
